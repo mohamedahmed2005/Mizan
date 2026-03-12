@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lifecompass/main.dart';
+import 'package:Mizan/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {

@@ -57,69 +57,71 @@ class _StudyScreenState extends State<StudyScreen> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       isScrollControlled: true,
-      builder: (_) => Padding(
+      builder: (ctx) => Padding(
         padding: EdgeInsets.only(
             left: 24,
             right: 24,
             top: 24,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Add Subject',
-                style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameCtrl,
-              autofocus: true,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                labelText: 'Subject Name',
-                prefixIcon: Icon(Icons.book_outlined, color: AppColors.teal),
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Add Subject',
+                  style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                autofocus: true,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Subject Name',
+                  prefixIcon: Icon(Icons.book_outlined, color: AppColors.teal),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: targetCtrl,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                labelText: 'Target Hours',
-                prefixIcon:
-                    Icon(Icons.timer_outlined, color: AppColors.purple),
+              const SizedBox(height: 12),
+              TextField(
+                controller: targetCtrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Target Hours',
+                  prefixIcon:
+                      Icon(Icons.timer_outlined, color: AppColors.purple),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.teal,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14)),
-                onPressed: () {
-                  if (nameCtrl.text.trim().isNotEmpty) {
-                    setState(() {
-                      _subjects.add(Subject(
-                        name: nameCtrl.text.trim(),
-                        targetHours: double.tryParse(targetCtrl.text) ?? 5.0,
-                      ));
-                    });
-                    _saveSubjects();
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text('Add Subject',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.teal,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: () {
+                    if (nameCtrl.text.trim().isNotEmpty) {
+                      setState(() {
+                        _subjects.add(Subject(
+                          name: nameCtrl.text.trim(),
+                          targetHours: double.tryParse(targetCtrl.text) ?? 5.0,
+                        ));
+                      });
+                      _saveSubjects();
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  child: const Text('Add Subject',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

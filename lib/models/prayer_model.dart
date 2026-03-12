@@ -15,7 +15,7 @@ class PrayerNames {
     'العشاء',
   ];
 
-  static const List<String> times = [
+  static List<String> times = [
     '5:00 AM',
     '12:30 PM',
     '4:00 PM',

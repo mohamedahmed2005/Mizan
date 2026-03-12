@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/storage_service.dart';
-import 'services/app_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/responsive_utils.dart';
 import 'screens/splash_screen.dart';
@@ -38,11 +37,11 @@ class MizanApp extends StatelessWidget {
           onFinished: () {
             Navigator.of(context).pushReplacement(
               PageRouteBuilder(
-                pageBuilder: (_, __, ___) => const MainShell(),
+                pageBuilder: (context, animation, secondaryAnimation) => const MainShell(),
                 transitionDuration: const Duration(milliseconds: 800),
-                transitionsBuilder: (_, anim, __, child) {
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
                   final curveAnim = CurvedAnimation(
-                    parent: anim,
+                    parent: animation,
                     curve: Curves.easeInOutCubic,
                   );
                   return FadeTransition(

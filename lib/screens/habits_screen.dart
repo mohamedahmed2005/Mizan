@@ -71,84 +71,86 @@ class _HabitsScreenState extends State<HabitsScreen> {
               right: 24,
               top: 24,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Add Habit',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameCtrl,
-                autofocus: true,
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
-                  labelText: 'Habit Name',
-                  prefixIcon: Icon(Icons.star_outline, color: AppColors.gold),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Add Habit',
+                    style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: const InputDecoration(
+                    labelText: 'Habit Name',
+                    prefixIcon: Icon(Icons.star_outline, color: AppColors.gold),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text('Pick an icon:',
-                  style:
-                      TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: icons.map((icon) {
-                  final selected = icon == selectedIcon;
-                  return GestureDetector(
-                    onTap: () => setModal(() => selectedIcon = icon),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.teal.withValues(alpha: 0.2)
-                            : AppColors.card,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: selected ? AppColors.teal : AppColors.border),
+                const SizedBox(height: 16),
+                const Text('Pick an icon:',
+                    style:
+                        TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: icons.map((icon) {
+                    final selected = icon == selectedIcon;
+                    return GestureDetector(
+                      onTap: () => setModal(() => selectedIcon = icon),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.teal.withValues(alpha: 0.2)
+                              : AppColors.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: selected ? AppColors.teal : AppColors.border),
+                        ),
+                        child: Text(icon, style: const TextStyle(fontSize: 24)),
                       ),
-                      child: Text(icon, style: const TextStyle(fontSize: 24)),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.teal,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 14)),
-                  onPressed: () async {
-                    if (nameCtrl.text.trim().isNotEmpty) {
-                      final defs = StorageService.getHabitDefinitions();
-                      defs.add(
-                          {'name': nameCtrl.text.trim(), 'icon': selectedIcon});
-                      await StorageService.saveHabitDefinitions(defs);
-                      await StorageService.saveHabitChecks(
-                          _today,
-                          List.generate(
-                              defs.length,
-                              (i) =>
-                                  i < _habits.length ? _habits[i].isDone : false));
-                      _loadData();
-                      AppState.instance.notify();
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    }
-                  },
-                  child: const Text('Add Habit',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  }).toList(),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.teal,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () async {
+                      if (nameCtrl.text.trim().isNotEmpty) {
+                        final defs = StorageService.getHabitDefinitions();
+                        defs.add(
+                            {'name': nameCtrl.text.trim(), 'icon': selectedIcon});
+                        await StorageService.saveHabitDefinitions(defs);
+                        await StorageService.saveHabitChecks(
+                            _today,
+                            List.generate(
+                                defs.length,
+                                (i) =>
+                                    i < _habits.length ? _habits[i].isDone : false));
+                        _loadData();
+                        AppState.instance.notify();
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      }
+                    },
+                    child: const Text('Add Habit',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

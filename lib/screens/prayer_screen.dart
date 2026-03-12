@@ -6,6 +6,7 @@ import '../services/storage_service.dart';
 import '../services/app_state.dart';
 import '../models/prayer_model.dart';
 import 'package:intl/intl.dart';
+import '../services/prayer_api_service.dart';
 
 class PrayerScreen extends StatefulWidget {
   const PrayerScreen({super.key});
@@ -43,6 +44,16 @@ class _PrayerScreenState extends State<PrayerScreen>
         _checkControllers[i].value = 1.0;
       }
     }
+    _loadPrayerTimes();
+  }
+
+  Future<void> _loadPrayerTimes() async {
+    final times = await PrayerApiService.fetchPrayerTimes();
+    if (times != null && times.length == 5 && mounted) {
+      setState(() {
+        PrayerNames.times = times;
+      });
+    }
   }
 
   @override
@@ -76,6 +87,43 @@ class _PrayerScreenState extends State<PrayerScreen>
         ),
       );
       return;
+    }
+
+    // Check if it's too early for this prayer
+    final now = DateTime.now();
+    final timeString = PrayerNames.times[index];
+    
+    try {
+      final parsedTime = DateFormat('h:mm a').parse(timeString);
+      // Create a DateTime object for today with the parsed hours and minutes
+      final prayerTime = DateTime(now.year, now.month, now.day, parsedTime.hour, parsedTime.minute);
+
+      if (now.isBefore(prayerTime)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.access_time, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'It\'s too early for ${PrayerNames.names[index]}! (Starts at $timeString) ⏳',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.orange,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error parsing prayer time: $e');
+      // If parsing fails for any reason, we just let them check it off
     }
 
     // Mark as done

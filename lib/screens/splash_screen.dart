@@ -103,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen>
                   // Pulse ring
                   AnimatedBuilder(
                     animation: _ringCtrl,
-                    builder: (_, __) => Transform.scale(
+                    builder: (context, child) => Transform.scale(
                       scale: _ringScale.value,
                       child: Opacity(
                         opacity: _ringOpacity.value,
@@ -223,7 +223,7 @@ class _DotsLoader extends StatelessWidget {
         );
         return AnimatedBuilder(
           animation: anim,
-          builder: (_, __) => Transform.translate(
+          builder: (context, child) => Transform.translate(
             offset: Offset(0, anim.value),
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 5),

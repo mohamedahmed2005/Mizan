@@ -8,7 +8,7 @@
 
 **Mizan** is a Flutter mobile application that helps you stay consistent with your daily prayers, study goals, habits, and overall life progress. It features:
 
-- 🕌 **Prayer Tracker** — Log your 5 daily prayers. Once marked, a prayer cannot be un-done (one-way only).
+- 🕌 **Prayer Tracker** — Log your 5 daily prayers with real-time prayer timings via the Aladhan API (Cairo, Egypt). Once marked, a prayer cannot be un-done.
 - 📚 **Study Tracker** — Track subjects, study hours, and progress toward your targets.
 - 🌱 **Habits Tracker** — Define and track daily habits with streaks.
 - 📊 **Statistics** — Visualise your weekly/monthly performance with charts.
@@ -75,6 +75,7 @@ dart run flutter_launcher_icons
 | `google_fonts` | Poppins typography |
 | `fl_chart` | Bar/line charts in Statistics |
 | `intl` | Date formatting |
+| `http` | Networking for API requests |
 | `flutter_launcher_icons` | App icon generation |
 
 ---
