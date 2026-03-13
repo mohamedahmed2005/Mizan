@@ -6,7 +6,6 @@ import '../services/storage_service.dart';
 import '../services/app_state.dart';
 import '../models/prayer_model.dart';
 import 'package:intl/intl.dart';
-import '../services/prayer_api_service.dart';
 
 class PrayerScreen extends StatefulWidget {
   const PrayerScreen({super.key});
@@ -22,6 +21,7 @@ class _PrayerScreenState extends State<PrayerScreen>
   late int _streak;
   late List<AnimationController> _checkControllers;
   late List<Animation<double>> _checkAnimations;
+  bool _isLoadingTimes = false; // Defalt to false since MainShell sets it instantly or loads it
 
   @override
   void initState() {
@@ -44,20 +44,22 @@ class _PrayerScreenState extends State<PrayerScreen>
         _checkControllers[i].value = 1.0;
       }
     }
-    _loadPrayerTimes();
+    
+    // Listen to global app state to rebuild when timings update
+    AppState.instance.addListener(_onStateUpdate);
   }
 
-  Future<void> _loadPrayerTimes() async {
-    final times = await PrayerApiService.fetchPrayerTimes();
-    if (times != null && times.length == 5 && mounted) {
+  void _onStateUpdate() {
+    if (mounted) {
       setState(() {
-        PrayerNames.times = times;
+        _isLoadingTimes = false;
       });
     }
   }
 
   @override
   void dispose() {
+    AppState.instance.removeListener(_onStateUpdate);
     for (var c in _checkControllers) {
       c.dispose();
     }
@@ -177,11 +179,38 @@ class _PrayerScreenState extends State<PrayerScreen>
                       color: AppColors.textSecondary,
                       fontSize: R.sp(context, 14))),
               const SizedBox(height: 4),
-              Text('Prayer Tracker',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: R.sp(context, 28),
-                      fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Prayer Tracker',
+                      style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: R.sp(context, 28),
+                          fontWeight: FontWeight.bold)),
+                  _isLoadingTimes
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.teal,
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            const Icon(Icons.location_on, color: AppColors.teal, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              PrayerNames.currentLocation,
+                              style: TextStyle(
+                                  color: AppColors.teal,
+                                  fontSize: R.sp(context, 12),
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                ],
+              ),
               const SizedBox(height: 24),
 
               Row(
@@ -346,10 +375,19 @@ class _PrayerScreenState extends State<PrayerScreen>
                 ],
               ),
             ),
-            Text(PrayerNames.times[index],
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: R.sp(context, 12))),
+            _isLoadingTimes
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.teal,
+                    ),
+                  )
+                : Text(PrayerNames.times[index],
+                    style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: R.sp(context, 12))),
           ],
         ),
       ),

@@ -16,10 +16,12 @@ class PrayerNames {
   ];
 
   static List<String> times = [
-    '5:00 AM',
-    '12:30 PM',
-    '4:00 PM',
-    '6:30 PM',
-    '8:00 PM',
+    '--:--',
+    '--:--',
+    '--:--',
+    '--:--',
+    '--:--',
   ];
+
+  static String currentLocation = 'Loading...';
 }

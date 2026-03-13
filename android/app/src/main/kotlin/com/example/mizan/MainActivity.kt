@@ -1,4 +1,4 @@
-package com.example.lifecompass
+package com.example.mizan
 
 import io.flutter.embedding.android.FlutterActivity
 

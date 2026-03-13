@@ -4,17 +4,23 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class PrayerApiService {
-  static const String _baseUrl = 'https://api.aladhan.com/v1/timingsByCity';
-  static const String _city = 'Cairo';
-  static const String _country = 'Egypt';
-  static const int _method = 5; // Egyptian General Authority of Survey
+  static const String _baseUrl = 'https://api.aladhan.com/v1/timings';
+  
+  // Egyptian General Authority of Survey
+  static const int _method = 5;
 
-  /// Fetches prayer times from Aladhan API and returns a list of formatted 12-hour strings
-  /// in the order: Fajr, Dhuhr, Asr, Maghrib, Isha
-  static Future<List<String>?> fetchPrayerTimes() async {
+  /// Fetches prayer times from Aladhan API. If lat/lng are provided, uses them.
+  /// Otherwise falls back to Cairo, Egypt coordinates.
+  static Future<List<String>?> fetchPrayerTimes({double? lat, double? lng}) async {
     try {
+      final now = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      
+      // Default to Cairo if no GPS provided
+      final double requestLat = lat ?? 30.0444; 
+      final double requestLng = lng ?? 31.2357;
+
       final url = Uri.parse(
-          '$_baseUrl?city=$_city&country=$_country&method=$_method');
+          '$_baseUrl/$now?latitude=$requestLat&longitude=$requestLng&method=$_method');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

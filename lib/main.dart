@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'services/storage_service.dart';
+import 'services/app_state.dart';
+import 'services/prayer_api_service.dart';
+import 'models/prayer_model.dart';
 import 'theme/app_theme.dart';
 import 'theme/responsive_utils.dart';
 import 'screens/splash_screen.dart';
@@ -86,6 +91,77 @@ class _MainShellState extends State<MainShell> {
     HabitsScreen(),
     StatisticsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrayerTimes();
+  }
+
+  Future<void> _loadPrayerTimes() async {
+    double? lat;
+    double? lng;
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+
+        if (permission == LocationPermission.whileInUse ||
+            permission == LocationPermission.always) {
+          Position position = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium)
+          );
+          lat = position.latitude;
+          lng = position.longitude;
+
+          try {
+            List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+            if (placemarks.isNotEmpty) {
+              final place = placemarks.first;
+              String city = place.locality ?? place.subAdministrativeArea ?? place.administrativeArea ?? '';
+              String country = place.country ?? '';
+              
+              if (city.isNotEmpty && country.isNotEmpty) {
+                PrayerNames.currentLocation = '$city, $country';
+              } else if (city.isNotEmpty) {
+                PrayerNames.currentLocation = city;
+              } else if (country.isNotEmpty) {
+                PrayerNames.currentLocation = country;
+              } else {
+                PrayerNames.currentLocation = 'Unknown Location';
+              }
+            }
+          } catch (e) {
+            debugPrint("Error reverse geocoding: $e");
+            PrayerNames.currentLocation = 'Location Found';
+          }
+        } else {
+          // If denied, default to Cairo immediately
+          PrayerNames.currentLocation = 'Cairo, Egypt';
+        }
+      } else {
+        PrayerNames.currentLocation = 'Cairo, Egypt';
+      }
+    } catch (e) {
+      debugPrint("Error requesting location: $e");
+      PrayerNames.currentLocation = 'Cairo, Egypt';
+    }
+
+    final times = await PrayerApiService.fetchPrayerTimes(lat: lat, lng: lng);
+    if (mounted) {
+      if (times != null && times.length == 5) {
+        PrayerNames.times = times;
+      } else {
+        // null means API failed (likely no internet)
+        PrayerNames.currentLocation = 'Offline';
+      }
+      AppState.instance.notify();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
