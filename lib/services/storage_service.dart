@@ -13,6 +13,66 @@ class StorageService {
     return _prefs!;
   }
 
+  // ─── Theme Mode ───────────────────────────────────────────
+  static bool getIsDarkMode() => prefs.getBool('is_dark_mode') ?? true;
+
+  static Future<void> saveIsDarkMode(bool isDark) async {
+    await prefs.setBool('is_dark_mode', isDark);
+  }
+
+  // ─── Habit History ────────────────────────────────────────
+  /// Returns a Map of date -> list of habit names that were completed.
+  static Map<String, List<String>> getHabitHistory() {
+    final raw = prefs.getString('habit_history');
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(k, List<String>.from(v)));
+  }
+
+  static Future<void> saveHabitHistory(
+      Map<String, List<String>> history) async {
+    await prefs.setString(
+        'habit_history', jsonEncode(history.map((k, v) => MapEntry(k, v))));
+  }
+
+  /// Records today's completed habits into history.
+  static Future<void> recordHabitHistory(
+      String date, List<Map<String, dynamic>> defs, List<bool> checks) async {
+    final history = getHabitHistory();
+    history[date] = [];
+    for (int i = 0; i < defs.length; i++) {
+      if (i < checks.length && checks[i]) {
+        history[date]!.add(defs[i]['name']?.toString() ?? '');
+      }
+    }
+    await saveHabitHistory(history);
+  }
+
+  // ─── Subject History ──────────────────────────────────────
+  /// Returns a Map of date -> list of {name, studied} for that day's log.
+  static Map<String, List<Map<String, dynamic>>> getSubjectHistory() {
+    final raw = prefs.getString('subject_history');
+    if (raw == null) return {};
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    return decoded.map((k, v) => MapEntry(
+        k, List<Map<String, dynamic>>.from((v as List).map((e) => Map<String, dynamic>.from(e)))));
+  }
+
+  static Future<void> saveSubjectHistory(
+      Map<String, List<Map<String, dynamic>>> history) async {
+    await prefs.setString('subject_history', jsonEncode(history));
+  }
+
+  /// Logs current subject study state (name + hours) to today's history.
+  static Future<void> recordSubjectHistory(
+      String date, List<Map<String, dynamic>> subjects) async {
+    final history = getSubjectHistory();
+    history[date] = subjects
+        .map((s) => {'name': s['name'], 'studied': s['studied']})
+        .toList();
+    await saveSubjectHistory(history);
+  }
+
   // ─── Prayer ───────────────────────────────────────────────
   static String _prayerKey(String date) => 'prayers_$date';
 
@@ -35,14 +95,7 @@ class StorageService {
   // ─── Study ────────────────────────────────────────────────
   static List<Map<String, dynamic>> getSubjects() {
     final raw = prefs.getString('subjects');
-    if (raw == null) {
-      return [
-        {'name': 'AI', 'studied': 0.0, 'target': 5.0},
-        {'name': 'Database', 'studied': 0.0, 'target': 4.0},
-        {'name': 'Operating System', 'studied': 0.0, 'target': 4.0},
-        {'name': 'Flutter', 'studied': 0.0, 'target': 3.0},
-      ];
-    }
+    if (raw == null) return [];
     return List<Map<String, dynamic>>.from(jsonDecode(raw));
   }
 
@@ -55,14 +108,7 @@ class StorageService {
 
   static List<Map<String, dynamic>> getHabitDefinitions() {
     final raw = prefs.getString('habit_defs');
-    if (raw == null) {
-      return [
-        {'name': 'Drink Water', 'icon': '💧'},
-        {'name': 'Exercise', 'icon': '🏋️'},
-        {'name': 'Study', 'icon': '📚'},
-        {'name': 'Read', 'icon': '📖'},
-      ];
-    }
+    if (raw == null) return [];
     return List<Map<String, dynamic>>.from(jsonDecode(raw));
   }
 

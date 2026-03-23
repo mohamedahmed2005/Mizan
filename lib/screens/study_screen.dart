@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import '../theme/app_theme.dart';
 import '../theme/responsive_utils.dart';
+import '../theme/theme_toggle_button.dart';
 import '../services/storage_service.dart';
 import '../services/app_state.dart';
 import '../models/study_model.dart';
@@ -34,6 +35,9 @@ class _StudyScreenState extends State<StudyScreen> {
 
   Future<void> _saveSubjects() async {
     await StorageService.saveSubjects(_subjects.map((s) => s.toMap()).toList());
+    // Record to history
+    await StorageService.recordSubjectHistory(
+        _today, _subjects.map((s) => s.toMap()).toList());
     for (final s in _subjects) {
       if (s.hoursStudied >= s.targetHours) {
         await StorageService.addPoints(30);
@@ -43,8 +47,6 @@ class _StudyScreenState extends State<StudyScreen> {
     final totalHours = _subjects.fold(0.0, (sum, s) => sum + s.hoursStudied);
     final prayers = StorageService.getPrayers(_today).where((p) => p).length;
     await StorageService.recordDayStats(_today, prayers, totalHours);
-
-    // Notify Dashboard to update study progress in real-time
     AppState.instance.notify();
   }
 
@@ -68,7 +70,7 @@ class _StudyScreenState extends State<StudyScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Add Subject',
+              Text('Add Subject',
                   style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 20,
@@ -77,8 +79,9 @@ class _StudyScreenState extends State<StudyScreen> {
               TextField(
                 controller: nameCtrl,
                 autofocus: true,
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                style: TextStyle(color: AppColors.textPrimary),
+                maxLength: 30,
+                decoration: InputDecoration(
                   labelText: 'Subject Name',
                   prefixIcon: Icon(Icons.book_outlined, color: AppColors.teal),
                 ),
@@ -86,10 +89,11 @@ class _StudyScreenState extends State<StudyScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: targetCtrl,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
-                  labelText: 'Target Hours',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(color: AppColors.textPrimary),
+                maxLength: 4,
+                decoration: InputDecoration(
+                  labelText: 'Target Hours (max 24)',
                   prefixIcon:
                       Icon(Icons.timer_outlined, color: AppColors.purple),
                 ),
@@ -105,11 +109,19 @@ class _StudyScreenState extends State<StudyScreen> {
                           borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 14)),
                   onPressed: () {
-                    if (nameCtrl.text.trim().isNotEmpty) {
+                    final name = nameCtrl.text.trim();
+                    if (name.isNotEmpty) {
+                      if (_subjects.any((s) => s.name.toLowerCase() == name.toLowerCase())) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Subject already exists!')));
+                        return;
+                      }
+                      double th = double.tryParse(targetCtrl.text) ?? 5.0;
+                      if (th <= 0.0) th = 1.0;
+                      if (th > 24.0) th = 24.0;
                       setState(() {
                         _subjects.add(Subject(
-                          name: nameCtrl.text.trim(),
-                          targetHours: double.tryParse(targetCtrl.text) ?? 5.0,
+                          name: name,
+                          targetHours: th,
                         ));
                       });
                       _saveSubjects();
@@ -128,6 +140,11 @@ class _StudyScreenState extends State<StudyScreen> {
   }
 
   void _editHours(int index) {
+    if (_subjects[index].hoursStudied >= _subjects[index].targetHours) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Subject already completed!')));
+      return;
+    }
+
     final ctrl =
         TextEditingController(text: _subjects[index].hoursStudied.toString());
     showDialog(
@@ -137,22 +154,23 @@ class _StudyScreenState extends State<StudyScreen> {
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Log Hours – ${_subjects[index].name}',
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(
-            labelText: 'Hours studied',
+          style: TextStyle(color: AppColors.textPrimary),
+          maxLength: 5,
+          decoration: InputDecoration(
+            labelText: 'Hours studied (max 24)',
             prefixIcon: Icon(Icons.access_time, color: AppColors.teal),
           ),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel',
+              child: Text('Cancel',
                   style: TextStyle(color: AppColors.textSecondary))),
           ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -163,7 +181,12 @@ class _StudyScreenState extends State<StudyScreen> {
               onPressed: () {
                 final val = double.tryParse(ctrl.text);
                 if (val != null && val >= 0) {
-                  setState(() => _subjects[index].hoursStudied = val);
+                  double maxAllowed = _subjects[index].targetHours;
+                  double clampedVal = val > maxAllowed ? maxAllowed : val;
+                  if (clampedVal < _subjects[index].hoursStudied) {
+                    clampedVal = _subjects[index].hoursStudied;
+                  }
+                  setState(() => _subjects[index].hoursStudied = clampedVal);
                   _saveSubjects();
                 }
                 Navigator.pop(context);
@@ -182,6 +205,112 @@ class _StudyScreenState extends State<StudyScreen> {
   double get _totalHours =>
       _subjects.fold(0.0, (sum, s) => sum + s.hoursStudied);
 
+  void _showHistory() {
+    final history = StorageService.getSubjectHistory();
+    final sortedDates = history.keys.toList()
+      ..sort((a, b) => b.compareTo(a)); // newest first
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        builder: (_, ctrl) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Text('📅 Study History',
+                      style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Divider(color: AppColors.border),
+            Expanded(
+              child: sortedDates.isEmpty
+                  ? Center(
+                      child: Text('No history yet',
+                          style: TextStyle(color: AppColors.textSecondary)))
+                  : ListView.builder(
+                      controller: ctrl,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      itemCount: sortedDates.length,
+                      itemBuilder: (_, i) {
+                        final date = sortedDates[i];
+                        final entries = history[date]!;
+                        final dt = DateTime.parse(date);
+                        final label =
+                            DateFormat('EEEE, MMMM d, y').format(dt);
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(14),
+                            border:
+                                Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(label,
+                                  style: TextStyle(
+                                      color: AppColors.teal,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 8),
+                              ...entries.map((e) {
+                                final hours = (e['studied'] ?? 0.0).toDouble();
+                                return Padding(
+                                  padding:
+                                      const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.menu_book_rounded,
+                                          size: 14,
+                                          color: AppColors.purple),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                          '${e['name']} — ${hours.toStringAsFixed(1)}h',
+                                          style: TextStyle(
+                                              color:
+                                                  AppColors.textPrimary,
+                                              fontSize: 13)),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pad = R.pd(context);
@@ -195,11 +324,27 @@ class _StudyScreenState extends State<StudyScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Study Tracker',
-                      style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: R.sp(context, 28),
-                          fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Study Tracker',
+                          style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: R.sp(context, 28),
+                              fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.history_rounded,
+                                color: AppColors.textSecondary),
+                            onPressed: _showHistory,
+                            tooltip: 'Study History',
+                          ),
+                          const ThemeToggleButton(),
+                        ],
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Text(
                       'Total today: ${_totalHours.toStringAsFixed(1)} hours',
@@ -295,7 +440,7 @@ class _StudyScreenState extends State<StudyScreen> {
           color: AppColors.red.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(Icons.delete_outline, color: AppColors.red),
+        child: Icon(Icons.delete_outline, color: AppColors.red),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),

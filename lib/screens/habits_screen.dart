@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/responsive_utils.dart';
+import '../theme/theme_toggle_button.dart';
 import '../services/storage_service.dart';
 import '../services/app_state.dart';
 import '../models/habit_model.dart';
@@ -39,15 +40,21 @@ class _HabitsScreenState extends State<HabitsScreen> {
   }
 
   Future<void> _toggleHabit(int index) async {
-    setState(() => _habits[index].isDone = !_habits[index].isDone);
+    if (_habits[index].isDone) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Habit already completed!')));
+      return;
+    }
+    setState(() => _habits[index].isDone = true);
     final checks = _habits.map((h) => h.isDone).toList();
     await StorageService.saveHabitChecks(_today, checks);
+    // Record habit history
+    await StorageService.recordHabitHistory(
+        _today, StorageService.getHabitDefinitions(), checks);
     final allDone = _habits.every((h) => h.isDone);
     if (allDone) {
       await StorageService.addPoints(20);
       await StorageService.unlockAchievement('all_habits');
     }
-    // Notify Dashboard to update habits counter in real-time
     AppState.instance.notify();
   }
 
@@ -76,7 +83,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Add Habit',
+                Text('Add Habit',
                     style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 20,
@@ -85,14 +92,15 @@ class _HabitsScreenState extends State<HabitsScreen> {
                 TextField(
                   controller: nameCtrl,
                   autofocus: true,
-                  style: const TextStyle(color: AppColors.textPrimary),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppColors.textPrimary),
+                  maxLength: 30,
+                  decoration: InputDecoration(
                     labelText: 'Habit Name',
                     prefixIcon: Icon(Icons.star_outline, color: AppColors.gold),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Pick an icon:',
+                Text('Pick an icon:',
                     style:
                         TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                 const SizedBox(height: 8),
@@ -129,10 +137,15 @@ class _HabitsScreenState extends State<HabitsScreen> {
                             borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(vertical: 14)),
                     onPressed: () async {
-                      if (nameCtrl.text.trim().isNotEmpty) {
+                      final name = nameCtrl.text.trim();
+                      if (name.isNotEmpty) {
                         final defs = StorageService.getHabitDefinitions();
+                        if (defs.any((d) => (d['name'] as String).toLowerCase() == name.toLowerCase())) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Habit already exists!')));
+                          return;
+                        }
                         defs.add(
-                            {'name': nameCtrl.text.trim(), 'icon': selectedIcon});
+                            {'name': name, 'icon': selectedIcon});
                         await StorageService.saveHabitDefinitions(defs);
                         await StorageService.saveHabitChecks(
                             _today,
@@ -166,19 +179,20 @@ class _HabitsScreenState extends State<HabitsScreen> {
         backgroundColor: AppColors.card,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('New Task',
+        title: Text('New Task',
             style: TextStyle(
                 color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: AppColors.textPrimary),
+          maxLength: 80,
           decoration: const InputDecoration(labelText: 'What do you need to do?'),
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
+              child: Text('Cancel',
                   style: TextStyle(color: AppColors.textSecondary))),
           ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -187,8 +201,9 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10))),
               onPressed: () async {
-                if (ctrl.text.trim().isNotEmpty) {
-                  setState(() => _tasks.add(DailyTask(text: ctrl.text.trim())));
+                final text = ctrl.text.trim();
+                if (text.isNotEmpty) {
+                  setState(() => _tasks.add(DailyTask(text: text)));
                   await _saveTasks();
                   if (ctx.mounted) Navigator.pop(ctx);
                 }
@@ -205,13 +220,146 @@ class _HabitsScreenState extends State<HabitsScreen> {
   }
 
   Future<void> _toggleTask(int index) async {
-    setState(() => _tasks[index].isDone = !_tasks[index].isDone);
+    if (_tasks[index].isDone) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task already completed!')));
+      return;
+    }
+    setState(() => _tasks[index].isDone = true);
     await _saveTasks();
   }
 
   Future<void> _deleteTask(int index) async {
     setState(() => _tasks.removeAt(index));
     await _saveTasks();
+  }
+
+  void _showHabitHistory() {
+    final history = StorageService.getHabitHistory();
+    final sortedDates = history.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        builder: (_, ctrl) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text('📅 Habit History',
+                  style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+            ),
+            Divider(color: AppColors.border),
+            Expanded(
+              child: sortedDates.isEmpty
+                  ? Center(
+                      child: Text('No history yet',
+                          style:
+                              TextStyle(color: AppColors.textSecondary)))
+                  : ListView.builder(
+                      controller: ctrl,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      itemCount: sortedDates.length,
+                      itemBuilder: (_, i) {
+                        final date = sortedDates[i];
+                        final completed = history[date]!;
+                        final dt = DateTime.parse(date);
+                        final label =
+                            DateFormat('EEEE, MMMM d, y').format(dt);
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(label,
+                                      style: TextStyle(
+                                          color: AppColors.teal,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.green
+                                          .withValues(alpha: 0.15),
+                                      borderRadius:
+                                          BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                        '✓ ${completed.length} done',
+                                        style: TextStyle(
+                                            color: AppColors.green,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                              if (completed.isNotEmpty) ...
+                                [
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: completed.map((name) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.teal
+                                              .withValues(alpha: 0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: AppColors.teal
+                                                  .withValues(alpha: 0.3)),
+                                        ),
+                                        child: Text(name,
+                                            style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 12)),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -241,12 +389,29 @@ class _HabitsScreenState extends State<HabitsScreen> {
                         color: AppColors.textSecondary,
                         fontSize: R.sp(context, 14)),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _tabButton('Habits 🌱', 0),
-                      const SizedBox(width: 10),
-                      _tabButton('Daily Plan 📋', 1),
+                      Row(
+                        children: [
+                          _tabButton('Habits 🌱', 0),
+                          const SizedBox(width: 10),
+                          _tabButton('Daily Plan 📋', 1),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          if (_selectedTab == 0)
+                            IconButton(
+                              icon: Icon(Icons.history_rounded,
+                                  color: AppColors.textSecondary),
+                              onPressed: _showHabitHistory,
+                              tooltip: 'Habit History',
+                            ),
+                          const ThemeToggleButton(),
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -327,7 +492,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                       value: _habits.isEmpty ? 0 : done / _habits.length,
                       backgroundColor: AppColors.border,
                       valueColor:
-                          const AlwaysStoppedAnimation(AppColors.green),
+                          AlwaysStoppedAnimation(AppColors.green),
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -431,7 +596,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                       value: _tasks.isEmpty ? 0 : done / _tasks.length,
                       backgroundColor: AppColors.border,
                       valueColor:
-                          const AlwaysStoppedAnimation(AppColors.purple),
+                          AlwaysStoppedAnimation(AppColors.purple),
                       minHeight: 6,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -469,7 +634,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                       color: AppColors.red.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(14)),
                   child:
-                      const Icon(Icons.delete_outline, color: AppColors.red),
+                      Icon(Icons.delete_outline, color: AppColors.red),
                 ),
                 child: GestureDetector(
                   onTap: () => _toggleTask(e.key),

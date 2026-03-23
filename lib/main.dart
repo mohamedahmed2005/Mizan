@@ -19,10 +19,11 @@ import 'screens/statistics_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageService.init();
+  AppState.instance.initFromStorage();
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
+    SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: AppState.instance.isDarkMode ? Brightness.light : Brightness.dark,
     ),
   );
   runApp(const MizanApp());
@@ -33,35 +34,50 @@ class MizanApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Mizan',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: Builder(
-        builder: (context) => SplashScreen(
-          onFinished: () {
-            Navigator.of(context).pushReplacement(
-              PageRouteBuilder(
-                pageBuilder: (context, animation, secondaryAnimation) => const MainShell(),
-                transitionDuration: const Duration(milliseconds: 800),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                  final curveAnim = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curveAnim,
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.95, end: 1.0).animate(curveAnim),
-                      child: child,
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) {
+        // Update the status bar color seamlessly when theme changes
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: AppState.instance.isDarkMode ? Brightness.light : Brightness.dark,
+          ),
+        );
+
+        return MaterialApp(
+          title: 'Mizan',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.currentTheme,
+          themeAnimationDuration: const Duration(milliseconds: 400),
+          themeAnimationCurve: Curves.easeInOut,
+          home: Builder(
+            builder: (context) => SplashScreen(
+              onFinished: () {
+                Navigator.of(context).pushReplacement(
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) => const MainShell(),
+                    transitionDuration: const Duration(milliseconds: 800),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      final curveAnim = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOutCubic,
+                      );
+                      return FadeTransition(
+                        opacity: curveAnim,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curveAnim),
+                          child: child,
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -75,6 +91,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  int _prevIndex = 0;
 
   static const List<_NavItem> _navItems = [
     _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard'),
@@ -96,6 +113,18 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _loadPrayerTimes();
+    // Rebuild navbar when theme changes
+    AppState.instance.addListener(_onThemeChange);
+  }
+
+  void _onThemeChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    AppState.instance.removeListener(_onThemeChange);
+    super.dispose();
   }
 
   Future<void> _loadPrayerTimes() async {
@@ -166,11 +195,39 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        reverseDuration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          // Determine slide direction based on nav movement
+          final goingRight = _currentIndex >= _prevIndex;
+          final slideIn = Tween<Offset>(
+            begin: Offset(goingRight ? 0.06 : -0.06, 0),
+            end: Offset.zero,
+          ).animate(animation);
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: slideIn, child: child),
+          );
+        },
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.topCenter,
+          children: [
+            ...previous,
+            if (current != null) current,
+          ],
+        ),
+        child: KeyedSubtree(
+          key: ValueKey<int>(_currentIndex),
+          child: _screens[_currentIndex],
+        ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: AnimatedBuilder(
+        animation: AppState.instance,
+        builder: (context, _) => _buildBottomNav(),
+      ),
     );
   }
 
@@ -182,7 +239,7 @@ class _MainShellState extends State<MainShell> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: const Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.3),
@@ -200,7 +257,14 @@ class _MainShellState extends State<MainShell> {
               final item = _navItems[i];
               final selected = _currentIndex == i;
               return GestureDetector(
-                onTap: () => setState(() => _currentIndex = i),
+                onTap: () {
+                  if (_currentIndex != i) {
+                    setState(() {
+                      _prevIndex = _currentIndex;
+                      _currentIndex = i;
+                    });
+                  }
+                },
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../theme/app_theme.dart';
 import '../theme/responsive_utils.dart';
+import '../theme/theme_toggle_button.dart';
 import '../services/storage_service.dart';
 import '../services/app_state.dart';
 import 'package:intl/intl.dart';
@@ -98,11 +99,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           child: ListView(
             padding: EdgeInsets.all(pad),
             children: [
-              Text('Statistics',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: R.sp(context, 28),
-                      fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Statistics',
+                      style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: R.sp(context, 28),
+                          fontWeight: FontWeight.bold)),
+                  const ThemeToggleButton(),
+                ],
+              ),
               const SizedBox(height: 4),
               Text('Your weekly overview',
                   style: TextStyle(

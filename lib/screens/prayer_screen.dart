@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import '../theme/app_theme.dart';
 import '../theme/responsive_utils.dart';
+import '../theme/theme_toggle_button.dart';
 import '../services/storage_service.dart';
 import '../services/app_state.dart';
 import '../models/prayer_model.dart';
@@ -187,67 +188,77 @@ class _PrayerScreenState extends State<PrayerScreen>
                           color: AppColors.textPrimary,
                           fontSize: R.sp(context, 28),
                           fontWeight: FontWeight.bold)),
-                  _isLoadingTimes
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.teal,
-                          ),
-                        )
-                      : Row(
-                          children: [
-                            const Icon(Icons.location_on, color: AppColors.teal, size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              PrayerNames.currentLocation,
-                              style: TextStyle(
-                                  color: AppColors.teal,
-                                  fontSize: R.sp(context, 12),
-                                  fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
+                  const ThemeToggleButton(),
                 ],
               ),
+              const SizedBox(height: 4),
+              _isLoadingTimes
+                  ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.teal,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.location_on, color: AppColors.teal, size: 14),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            PrayerNames.currentLocation,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: AppColors.teal,
+                                fontSize: R.sp(context, 12),
+                                fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
               const SizedBox(height: 24),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  CircularPercentIndicator(
-                    radius: 80,
-                    lineWidth: 10,
-                    percent: _progress,
-                    center: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$_doneCount/5',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                  SizedBox(
+                    width: 160,
+                    height: 160,
+                    child: CircularPercentIndicator(
+                      radius: 78,
+                      lineWidth: 10,
+                      percent: _progress,
+                      center: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$_doneCount/5',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const Text(
-                          'prayers',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
+                          Text(
+                            'prayers',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      progressColor: AppColors.teal,
+                      backgroundColor: AppColors.border,
+                      animation: true,
+                      animationDuration: 800,
+                      circularStrokeCap: CircularStrokeCap.round,
                     ),
-                    progressColor: AppColors.teal,
-                    backgroundColor: AppColors.border,
-                    animation: true,
-                    animationDuration: 800,
-                    circularStrokeCap: CircularStrokeCap.round,
                   ),
                   const SizedBox(width: 12),
-                  Flexible(child: _buildStreakCard()),
+                  Expanded(child: _buildStreakCard()),
                 ],
               ),
 
@@ -376,7 +387,7 @@ class _PrayerScreenState extends State<PrayerScreen>
               ),
             ),
             _isLoadingTimes
-                ? const SizedBox(
+                ? SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
